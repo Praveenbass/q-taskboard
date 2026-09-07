@@ -97,3 +97,25 @@ class TestTasks:
 
         response = client.delete(f'/api/tasks/{task.id}')
         assert response.status_code == 403
+
+    def test_cannot_assign_task_to_non_member(self, auth_client, user):
+        project = Project.objects.create(name='P', owner=user)
+        Membership.objects.create(user=user, project=project, role='admin')
+
+        other_user = User.objects.create_user(
+            email='other@example.com',
+            name='Other',
+            password='password123'
+        )
+
+        response = auth_client.post(
+            f'/api/projects/{project.id}/tasks',
+            {
+                'title': 'Invalid Assignment',
+                'assigneeId': str(other_user.id),
+            },
+            format='json'
+        )
+
+        assert response.status_code == 400
+        assert response.data['error'] == 'assignee must be a project member'

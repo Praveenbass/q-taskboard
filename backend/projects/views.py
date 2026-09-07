@@ -148,15 +148,39 @@ class TaskListCreateView(APIView):
         last = Task.objects.filter(project_id=project_id, status=task_status).order_by('-position').first()
         position = (last.position + 1) if last else 0
 
+        assignee_id = request.data.get('assigneeId') or None
+
+        if assignee_id:
+            is_member = Membership.objects.filter(
+                project_id=project_id,
+                user_id=assignee_id,
+            ).exists()
+
+            if not is_member:
+                return Response(
+                    {'error': 'assignee must be a project member'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         task = Task.objects.create(
             project_id=project_id,
             title=title,
             description=request.data.get('description') or None,
             status=task_status,
-            assignee_id=request.data.get('assigneeId') or None,
+            assignee_id=assignee_id,
             created_by=request.user,
             position=position,
         )
+
+        # task = Task.objects.create(
+        #     project_id=project_id,
+        #     title=title,
+        #     description=request.data.get('description') or None,
+        #     status=task_status,
+        #     assignee_id=request.data.get('assigneeId') or None,
+        #     created_by=request.user,
+        #     position=position,
+        # )
         task_data = TaskSerializer(Task.objects.select_related('assignee').get(id=task.id)).data
         return Response({'task': task_data}, status=status.HTTP_201_CREATED)
 
